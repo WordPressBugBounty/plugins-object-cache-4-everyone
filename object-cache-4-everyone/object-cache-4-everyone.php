@@ -21,10 +21,10 @@ if (!defined('ABSPATH')) {
 }
 
 //Delete object-cache.php
-include_once('oc4-deactivation.php');
+include_once 'oc4-deactivation.php';
 register_deactivation_hook(__FILE__, 'oc4everyone_deactivation');
 
-//First install
+// First install.
 if (!function_exists('oc4everyone_plugins_loaded_activation')) {
     function oc4everyone_admin_notices_no_class_exists()
     {
@@ -108,14 +108,14 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
     function oc4everyone_plugins_loaded_activation()
     {
         if (defined('OC4EVERYONE_PREDEFINED_SERVER')) {
-            return; //Nothing needed, everything works
+            return; // Nothing needed, everything works.
         }
 
         if (!current_user_can('activate_plugins') || !is_admin()) {
-            return; //Only for admin users and dashboard access
+            return; // Only for admin users and dashboard access.
         }
 
-        //Check object-cache.php exists
+        // Check object-cache.php exists.
         if (file_exists(WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'object-cache.php')) {
             add_action('admin_notices', 'oc4everyone_admin_notices_object', PHP_INT_MAX);
             add_action('admin_init', 'oc4everyone_admin_init_deactivate_itself', PHP_INT_MAX);
@@ -136,7 +136,7 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
             if (defined('OC4EVERYONE_MEMCACHED_SERVER')) {
                 $memcached_servers =  array(OC4EVERYONE_MEMCACHED_SERVER);
             } else {
-                //Try SG Memcached server first
+                // Try SG Memcached server first.
                 // Get the account name.
                 if (function_exists('get_current_user') && get_current_user() !== '') {
                     $account_name = get_current_user();
@@ -150,7 +150,7 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
 
                         // Return empty string if there is no match.
                         if (!empty($matches[1])) {
-                            //Override current list
+                            // Override current list.
                             $memcached_servers =  array(
                                 '127.0.0.1:' . $matches[1]
                             );
@@ -165,7 +165,7 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
                 list($node, $port) = explode(':', $server);
                 $temp_Memcached->addServer($node, $port);
 
-                //Checks server
+                // Checks server.
                 $temp_Memcached->getVersion();
                 if ($temp_Memcached->getResultCode() === 0) {
                     $found_server =  $server;
@@ -174,9 +174,9 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
             }
             if ($found_server !== '') {
 
-                //Memcached + Memcached Server running
+                // Memcached + Memcached Server running.
 
-                //Copy object-cache.php + define('OC4EVERYONE_PREDEFINED_SERVER', $server); line
+                // Copy object-cache.php + define('OC4EVERYONE_PREDEFINED_SERVER', $server); line.
                 $template = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'object-cache-memcached-template.php');
 
                 $template = "<?php
@@ -200,15 +200,15 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
 
                 add_action('admin_notices', 'oc4everyone_admin_notices_ok_memcached', PHP_INT_MAX);
 
-                //Flush cache on plugin activation
+                // Flush cache on plugin activation.
                 wp_cache_flush();
 
                 return;
             } else {
-                //Memcached - Memcached Server not running
+                // Memcached - Memcached Server not running.
                 add_action('admin_notices', 'oc4everyone_admin_notices_no_server_running', PHP_INT_MAX);
             }        
-        //class_exists('Memcached')
+        // class_exists('Memcached').
         } else {
             add_action('admin_notices', 'oc4everyone_admin_notices_no_class_exists', PHP_INT_MAX);
         }
@@ -218,7 +218,7 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
             return;
         }
 
-        //Copy object-cache.php + define('OC4EVERYONE_PREDEFINED_SERVER', ''); line
+        // Copy object-cache.php + define('OC4EVERYONE_PREDEFINED_SERVER', ''); line.
         $template = file_get_contents(__DIR__ . DIRECTORY_SEPARATOR . 'object-cache-disk-template.php');
 
         $template = "<?php
@@ -242,7 +242,7 @@ if (!function_exists('oc4everyone_plugins_loaded_activation')) {
 
         add_action('admin_notices', 'oc4everyone_admin_notices_ok_disk', PHP_INT_MAX);
 
-        //Flush cache on plugin activation
+        // Flush cache on plugin activation.
         wp_cache_flush();
     }
 }
@@ -254,13 +254,13 @@ function oc4everyone_add_server_info($links_array, $plugin_file_name, $plugin_da
     global $wp_object_cache;
 
     if (strpos($plugin_file_name, basename(__FILE__)) && class_exists('Memcached') && method_exists($wp_object_cache, 'getStats') && file_exists(WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'object-cache.php')) {
-        //Extra check
+        // Extra check.
         if(!defined('OC4EVERYONE_PREDEFINED_SERVER') || !array_key_exists(OC4EVERYONE_PREDEFINED_SERVER, $wp_object_cache->getStats())){
             return $links_array;        
         }
 
         $hits = $wp_object_cache->getStats()[OC4EVERYONE_PREDEFINED_SERVER]['get_hits'];
-        //Extra check
+        // Extra check.
         if($hits == 0) {
             return $links_array;        
         }
@@ -291,11 +291,11 @@ function oc4flush_memcached() {
     if (!class_exists('Memcached')) {
         wp_die(esc_html__('Failed to flush Memcached server'));
     }
-    // Verify the nonce
-    if (isset($_GET['nonce']) && wp_verify_nonce($_GET['nonce'], 'flush_memcached_nonce')) {
-        //flush cache 
+    // Verify the nonce.
+    if (isset($_GET['nonce']) && wp_verify_nonce(sanitize_key($_GET['nonce']), 'flush_memcached_nonce')) {
+        // Flush cache.
         global $wp_object_cache;
-        error_log(print_r($wp_object_cache->getStats()[OC4EVERYONE_PREDEFINED_SERVER],true));        
+        error_log(print_r($wp_object_cache->getStats()[OC4EVERYONE_PREDEFINED_SERVER], true));        
         $wp_object_cache->flush();
 
         $memcached = new Memcached();
