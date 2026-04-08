@@ -5,7 +5,7 @@
  * Description: Memcached or disk backend support for the WP Object Cache. Memcached server running and PHP Memcached class needed for better performance. No configuration needed, runs automatically
  * Plugin URI: https://wordpress.org/plugins/object-cache-4-everyone
  * Author: fpuenteonline
- * Version: 2.2
+ * Version: 2.3
  * Author URI: https://twitter.com/fpuenteonline
  * License:     GPLv2 or later
  * License URI: http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
