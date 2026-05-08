@@ -31,7 +31,13 @@ if ( ! function_exists( 'oc4everyone_deactivation' ) ) {
 
 			// Delete object-cache.php drop-in.
 			if ( file_exists( $dropin_path ) ) {
-				unlink( $dropin_path );
+				// Check if the file is actually our drop-in before deleting to avoid accidental data loss.
+				$content = file_get_contents( $dropin_path );
+				if ( false === $content || strpos( $content, 'Object Cache 4 everyone' ) === false ) {
+					return;
+				}
+
+				wp_delete_file( $dropin_path );
 			}
 		}
 

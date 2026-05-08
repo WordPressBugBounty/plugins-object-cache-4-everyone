@@ -20,11 +20,14 @@ class ObjectCacheDisk
 
     public function __construct($persistent_id = null)
     {
+        global $wp_filesystem;
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        WP_Filesystem();
+
         //Create
         $this->local_path =  WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR . 'object' . DIRECTORY_SEPARATOR;
-
-        if (!file_exists($this->local_path)) {
-            $return = mkdir($this->local_path, 0755, true);
+        if (!$wp_filesystem->exists($this->local_path)) {
+            $return = $wp_filesystem->mkdir($this->local_path, 0755);
             if (!$return) {
                 $this->result_code = self::RES_FAILURE;
                 return;
@@ -41,20 +44,11 @@ class ObjectCacheDisk
 
     private function deleteDirectory($dirPath)
     {
-        if (is_dir($dirPath)) {
-            $objects = scandir($dirPath);
-            foreach ($objects as $object) {
-                if ($object != "." && $object != "..") {
-                    if (filetype($dirPath . DIRECTORY_SEPARATOR . $object) == "dir") {
-                        $this->deleteDirectory($dirPath . DIRECTORY_SEPARATOR . $object);
-                    } else {
-                        unlink($dirPath . DIRECTORY_SEPARATOR . $object);
-                    }
-                }
-            }
-            reset($objects);
-            return rmdir($dirPath);
+        global $wp_filesystem;
+        if ($wp_filesystem->is_dir($dirPath)) {
+            return $wp_filesystem->rmdir($dirPath, true);
         }
+        return false;
     }
 
     public function flush($delay = 0)
@@ -81,14 +75,15 @@ class ObjectCacheDisk
 
     public function delete($key, $time = 0)
     {
+        global $wp_filesystem;
         //Find file and put
         $path = $this->_get_path($key);
-        if (file_exists($path)) {
-            unlink($path);
+        if ($wp_filesystem->exists($path)) {
+            $wp_filesystem->delete($path);
 
             $dir = dirname($path);
-            if (is_dir($dir)) {
-                rmdir($dir);
+            if ($wp_filesystem->is_dir($dir)) {
+                $wp_filesystem->rmdir($dir);
             }
 
             $this->result_code = self::RES_SUCCESS;
@@ -100,9 +95,10 @@ class ObjectCacheDisk
 
     public function add($key, $value, $expiration = 0)
     {
+        global $wp_filesystem;
         //Find file and put
         $path = $this->_get_path($key);
-        if (file_exists($path)) {
+        if ($wp_filesystem->exists($path)) {
             $this->result_code = self::RES_DATA_EXISTS;
             return false;
         }
@@ -111,13 +107,14 @@ class ObjectCacheDisk
 
     public function set($key, $value, $expiration = 0)
     {
+        global $wp_filesystem;
         //Find file and put
         $path = $this->_get_path($key);
 
         //Folder for file
         $dir = dirname($path);
-        if (!is_dir($dir)) {
-            $return = mkdir($dir, 0755, true);
+        if (!$wp_filesystem->is_dir($dir)) {
+            $return = $wp_filesystem->mkdir($dir, 0755);
             if (!$return) {
                 $this->result_code = self::RES_FAILURE;
                 return false;
@@ -128,7 +125,7 @@ class ObjectCacheDisk
             $value = clone $value;
         }
 
-        $return = file_put_contents($path, @serialize($value));
+        $return = $wp_filesystem->put_contents($path, @serialize($value));
         if (!$return) {
             $this->result_code = self::RES_FAILURE;
             return false;
@@ -140,14 +137,15 @@ class ObjectCacheDisk
 
     public function get($key)
     {
+        global $wp_filesystem;
         //Find file and return
         $path = $this->_get_path($key);
-        if (!file_exists($path) ||  !is_readable($path)) {
+        if (!$wp_filesystem->exists($path) || !$wp_filesystem->is_readable($path)) {
             $this->result_code = self::RES_FAILURE;
             return false;
         }
 
-        $objData = file_get_contents($path);
+        $objData = $wp_filesystem->get_contents($path);
         if ($objData === false) {
             $this->result_code = self::RES_FAILURE;
             return false;
@@ -165,7 +163,14 @@ class ObjectCacheDisk
 
         $array_hash = str_split($hash, 8); //8 name based
 
-        $path = $this->local_path . implode(DIRECTORY_SEPARATOR, $array_hash) . DIRECTORY_SEPARATOR . '.object';
+        $path = $this->local_path . implode(DIRECTORY_SEPARATOR, $array_hash);
+        
+        // Ensure directory exists with an index.php to prevent directory listing
+        if (!file_exists($path . DIRECTORY_SEPARATOR . 'index.php')) {
+            @file_put_contents($path . DIRECTORY_SEPARATOR . 'index.php', '<?php // Silence is golden.');
+        }
+
+        $path .= DIRECTORY_SEPARATOR . '.object.php';
         return $path;
     }
 }

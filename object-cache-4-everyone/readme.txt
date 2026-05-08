@@ -3,7 +3,7 @@ Contributors: fpuenteonline
 Tags: Memcached, cache, object cache, WPO
 Requires at least: 5.0
 Tested up to: 6.9
-Stable tag: 2.3
+Stable tag: 2.3.2
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -43,6 +43,12 @@ A WordPress object cache that uses the memcached (not memcache) PECL extension.
 Thanks to Zack Tollman & 10up
 
 == Changelog ==
+= 2.3.2 - 2026-05-08 =
+Template updated
+
+= 2.3.1 - 2026-05-08 =
+Security fixes. Plugin Check (PCP) review
+
 = 2.3 - 2025-03-20 =
 WPCS review
 Added WordPress 6.9 compatibility

@@ -571,7 +571,7 @@ if ( class_exists( 'Memcached' ) ) {
 				$this->m->addServer( $node, $port, PHP_INT_MAX );
 
 				// Started?
-				$this->m->add( 'wordpress_server_init_cache_time', date( 'd/m/Y G:i:s' ) );
+				$this->m->add( 'wordpress_server_init_cache_time', gmdate( 'd/m/Y G:i:s' ) );
 			}
 
 			// Assign global and blog prefixes for use with keys.
