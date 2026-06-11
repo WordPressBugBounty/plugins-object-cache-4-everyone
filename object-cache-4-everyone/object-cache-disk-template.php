@@ -33,7 +33,47 @@ class ObjectCacheDisk
                 return;
             }
         }
+
+        // Block direct web access and directory listing of the cache tree.
+        $this->protect_dir($this->local_path);
+
         $this->result_code = self::RES_SUCCESS;
+    }
+
+    /**
+     * Drops an index.php and a deny-all .htaccess in a cache directory so the
+     * serialized cache files cannot be listed or served over the web.
+     *
+     * @param string $dir Directory to protect (with trailing separator).
+     */
+    private function protect_dir($dir)
+    {
+        global $wp_filesystem;
+
+        if (!$wp_filesystem->exists($dir . 'index.php')) {
+            $wp_filesystem->put_contents($dir . 'index.php', '<?php // Silence is golden.');
+        }
+
+        if (!$wp_filesystem->exists($dir . '.htaccess')) {
+            $htaccess = "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder allow,deny\nDeny from all\n</IfModule>\n";
+            $wp_filesystem->put_contents($dir . '.htaccess', $htaccess);
+        }
+    }
+
+    /**
+     * Returns the secret used to sign cache files on disk.
+     *
+     * @return string
+     */
+    private function hmac_key()
+    {
+        if (defined('AUTH_SALT') && AUTH_SALT) {
+            return AUTH_SALT;
+        }
+        if (defined('SECURE_AUTH_SALT') && SECURE_AUTH_SALT) {
+            return SECURE_AUTH_SALT;
+        }
+        return 'oc4everyone-disk-cache';
     }
 
     public function quit()
@@ -125,7 +165,11 @@ class ObjectCacheDisk
             $value = clone $value;
         }
 
-        $return = $wp_filesystem->put_contents($path, @serialize($value));
+        // Sign the serialized payload so a tampered cache file is rejected before unserialize().
+        $serialized = @serialize($value);
+        $blob       = hash_hmac('sha256', $serialized, $this->hmac_key()) . $serialized;
+
+        $return = $wp_filesystem->put_contents($path, $blob);
         if (!$return) {
             $this->result_code = self::RES_FAILURE;
             return false;
@@ -146,12 +190,22 @@ class ObjectCacheDisk
         }
 
         $objData = $wp_filesystem->get_contents($path);
-        if ($objData === false) {
+        if ($objData === false || strlen($objData) < 64) {
             $this->result_code = self::RES_FAILURE;
             return false;
         }
 
-        $data = unserialize($objData);
+        // Verify the HMAC signature before unserializing. A tampered or unsigned
+        // file fails the constant-time comparison and is treated as a cache miss,
+        // so attacker-controlled bytes never reach unserialize().
+        $stored_hmac = substr($objData, 0, 64);
+        $serialized  = substr($objData, 64);
+        if (!hash_equals(hash_hmac('sha256', $serialized, $this->hmac_key()), $stored_hmac)) {
+            $this->result_code = self::RES_FAILURE;
+            return false;
+        }
+
+        $data = unserialize($serialized);
 
         $this->result_code = self::RES_SUCCESS;
         return $data;
@@ -164,13 +218,9 @@ class ObjectCacheDisk
         $array_hash = str_split($hash, 8); //8 name based
 
         $path = $this->local_path . implode(DIRECTORY_SEPARATOR, $array_hash);
-        
-        // Ensure directory exists with an index.php to prevent directory listing
-        if (!file_exists($path . DIRECTORY_SEPARATOR . 'index.php')) {
-            @file_put_contents($path . DIRECTORY_SEPARATOR . 'index.php', '<?php // Silence is golden.');
-        }
 
-        $path .= DIRECTORY_SEPARATOR . '.object.php';
+        // Cache payload stored with a non-PHP extension so it is never executed even if served directly.
+        $path .= DIRECTORY_SEPARATOR . '.object.cache';
         return $path;
     }
 }
